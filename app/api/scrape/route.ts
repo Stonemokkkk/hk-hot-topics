@@ -35,10 +35,9 @@ export async function POST(request: Request) {
   await setJob(job);
 
   // Run scraper in background (Vercel Background Function pattern)
-  const scraperPath = path.join(process.cwd(), 'scraper', 'scraper.py');
   const sourceArgs = sources.join(' ');
 
-  exec(`python3 ${scraperPath} --json ${sourceArgs}`, {
+  exec(`python3 -m scraper.scraper --json ${sourceArgs}`, {
     timeout: 4 * 60 * 1000, // 4 minutes (leave buffer for 5 min limit)
     maxBuffer: 10 * 1024 * 1024, // 10MB buffer
   }, async (error, stdout, stderr) => {
