@@ -1,65 +1,133 @@
-import Image from "next/image";
+// app/page.tsx
+
+'use client';
+
+import { useState, useCallback } from 'react';
+import SettingsPanel from '@/components/SettingsPanel';
+import ResultsPanel from '@/components/ResultsPanel';
+import type { ScrapeJob, Topic, ScrapeSource } from '@/lib/types';
 
 export default function Home() {
+  const [job, setJob] = useState<ScrapeJob | null>(null);
+  const [topics, setTopics] = useState<Topic[]>([]);
+  const [toolHtml, setToolHtml] = useState<string | null>(null);
+  const [isScraping, setIsScraping] = useState(false);
+  const [isGenerating, setIsGenerating] = useState(false);
+
+  // Poll job status
+  const pollJobStatus = useCallback(async (jobId: string) => {
+    const res = await fetch(`/api/status?jobId=${jobId}`);
+    const data = await res.json();
+
+    if (data.success && data.data) {
+      setJob(data.data.job);
+      if (data.data.topics) {
+        setTopics(data.data.topics);
+      }
+
+      // Continue polling if still running
+      if (data.data.job.status === 'running') {
+        setTimeout(() => pollJobStatus(jobId), 2000);
+      } else {
+        setIsScraping(false);
+      }
+    }
+  }, []);
+
+  // Handle scrape
+  const handleScrape = async (sources: ScrapeSource[]) => {
+    setIsScraping(true);
+    setToolHtml(null);
+
+    const res = await fetch('/api/scrape', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ sources }),
+    });
+
+    const data = await res.json();
+
+    if (data.success && data.data) {
+      pollJobStatus(data.data.jobId);
+    } else {
+      setIsScraping(false);
+      alert(data.error || 'Failed to start scraping');
+    }
+  };
+
+  // Handle generate
+  const handleGenerate = async (apiKey: string, model: string) => {
+    if (topics.length === 0) {
+      alert('Please scrape topics first');
+      return;
+    }
+
+    setIsGenerating(true);
+
+    const res = await fetch('/api/generate', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ apiKey, model, topics }),
+    });
+
+    const data = await res.json();
+    setIsGenerating(false);
+
+    if (data.success && data.data) {
+      setToolHtml(data.data.html);
+    } else {
+      alert(data.error || 'Failed to generate tool');
+    }
+  };
+
+  // Handle download
+  const handleDownload = () => {
+    if (!toolHtml) return;
+
+    const blob = new Blob([toolHtml], { type: 'text/html' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `hk-tool-${new Date().toISOString().split('T')[0]}.html`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  };
+
   return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
+    <main className="container mx-auto px-4 py-8">
+      <div className="text-center mb-8">
+        <h1 className="text-4xl font-bold text-white mb-2">
+          🇭🇰 HK Hot Topics Dashboard
+        </h1>
+        <p className="text-white/80">
+          输入你嘅 API key，即時 scraping 同生成互動小工具
+        </p>
+      </div>
+
+      <div className="grid lg:grid-cols-3 gap-6">
+        {/* Left Panel - Settings */}
+        <div className="lg:col-span-1">
+          <SettingsPanel
+            onScrape={handleScrape}
+            onGenerate={handleGenerate}
+            onDownload={handleDownload}
+            isScraping={isScraping}
+            isGenerating={isGenerating}
+            hasTool={!!toolHtml}
+          />
         </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
+
+        {/* Right Panel - Results */}
+        <div className="lg:col-span-2">
+          <ResultsPanel
+            job={job}
+            topics={topics}
+            toolHtml={toolHtml}
+          />
         </div>
-      </main>
-    </div>
+      </div>
+    </main>
   );
 }
