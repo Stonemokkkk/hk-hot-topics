@@ -4,27 +4,26 @@
 
 import TopicList from './TopicList';
 import ToolPreview from './ToolPreview';
-import type { Topic, ScrapeJob } from '@/lib/types';
+import type { Topic } from '@/lib/types';
 
 interface ResultsPanelProps {
-  job: ScrapeJob | null;
+  scrapeStatus: 'idle' | 'running' | 'complete' | 'error';
+  scrapeError: string | null;
   topics: Topic[];
   toolHtml: string | null;
 }
 
-export default function ResultsPanel({ job, topics, toolHtml }: ResultsPanelProps) {
+export default function ResultsPanel({ scrapeStatus, scrapeError, topics, toolHtml }: ResultsPanelProps) {
   const getStatusDisplay = () => {
-    if (!job) return { icon: '⏳', text: 'Ready to scrape', color: 'text-gray-500' };
-
-    switch (job.status) {
+    switch (scrapeStatus) {
+      case 'idle':
+        return { icon: '⏳', text: 'Ready to scrape', color: 'text-gray-500' };
       case 'running':
-        return { icon: '🔄', text: `Scraping... ${job.progress}%`, color: 'text-blue-500' };
+        return { icon: '🔄', text: 'Scraping... please wait', color: 'text-blue-500' };
       case 'complete':
-        return { icon: '✅', text: `Scraping complete - ${topics.length} topics found`, color: 'text-green-500' };
+        return { icon: '✅', text: `Scraping complete — ${topics.length} topics found`, color: 'text-green-500' };
       case 'error':
-        return { icon: '❌', text: `Error: ${job.error}`, color: 'text-red-500' };
-      default:
-        return { icon: '⏳', text: 'Unknown status', color: 'text-gray-500' };
+        return { icon: '❌', text: `Error: ${scrapeError}`, color: 'text-red-500' };
     }
   };
 
@@ -59,7 +58,7 @@ export default function ResultsPanel({ job, topics, toolHtml }: ResultsPanelProp
       )}
 
       {/* Empty State */}
-      {!job && topics.length === 0 && !toolHtml && (
+      {scrapeStatus === 'idle' && topics.length === 0 && !toolHtml && (
         <div className="text-center py-12 text-gray-400">
           <p className="text-4xl mb-4">🇭🇰</p>
           <p>Click &quot;Scrape Topics&quot; to start</p>

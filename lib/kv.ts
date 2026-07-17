@@ -1,54 +1,36 @@
-// lib/kv.ts
-
-import { kv } from '@vercel/kv';
+// lib/kv.ts — In-memory store (replaces @vercel/kv which is no longer available)
 import type { ScrapeJob, ScrapeResult, GeneratedTool } from './types';
 
-const JOB_PREFIX = 'scrape:job:';
-const RESULT_PREFIX = 'scrape:result:';
-const TOOL_PREFIX = 'tool:';
-const TOOLS_INDEX = 'tools:index';
+const jobs = new Map<string, ScrapeJob>();
+const results = new Map<string, ScrapeResult>();
+const tools = new Map<string, GeneratedTool>();
+const toolsIndex: string[] = [];
 
 // Job operations
 export async function getJob(jobId: string): Promise<ScrapeJob | null> {
-  return kv.get<ScrapeJob>(`${JOB_PREFIX}${jobId}`);
+  return jobs.get(jobId) ?? null;
 }
 
 export async function setJob(job: ScrapeJob): Promise<void> {
-  await kv.set(`${JOB_PREFIX}${job.jobId}`, job, { ex: 7 * 24 * 60 * 60 }); // 7 days TTL
+  jobs.set(job.jobId, job);
 }
 
 // Result operations
 export async function getResults(jobId: string): Promise<ScrapeResult | null> {
-  return kv.get<ScrapeResult>(`${RESULT_PREFIX}${jobId}`);
+  return results.get(jobId) ?? null;
 }
 
-export async function setResults(jobId: string, results: ScrapeResult): Promise<void> {
-  await kv.set(`${RESULT_PREFIX}${jobId}`, results, { ex: 7 * 24 * 60 * 60 }); // 7 days TTL
+export async function setResults(jobId: string, res: ScrapeResult): Promise<void> {
+  results.set(jobId, res);
 }
 
 // Tool operations
-export async function getTool(toolId: string): Promise<GeneratedTool | null> {
-  return kv.get<GeneratedTool>(`${TOOL_PREFIX}${toolId}`);
-}
-
 export async function setTool(tool: GeneratedTool): Promise<void> {
-  await kv.set(`${TOOL_PREFIX}${tool.toolId}`, tool, { ex: 30 * 24 * 60 * 60 }); // 30 days TTL
-
-  // Update tools index
-  const index = await kv.get<string[]>(TOOLS_INDEX) || [];
-  index.unshift(tool.toolId);
-  if (index.length > 100) index.pop(); // Keep last 100
-  await kv.set(TOOLS_INDEX, index);
+  tools.set(tool.toolId, tool);
+  toolsIndex.unshift(tool.toolId);
+  if (toolsIndex.length > 100) toolsIndex.pop();
 }
 
 export async function listTools(): Promise<GeneratedTool[]> {
-  const index = await kv.get<string[]>(TOOLS_INDEX) || [];
-  const tools: GeneratedTool[] = [];
-
-  for (const toolId of index.slice(0, 20)) { // Latest 20
-    const tool = await getTool(toolId);
-    if (tool) tools.push(tool);
-  }
-
-  return tools;
+  return toolsIndex.slice(0, 20).map(id => tools.get(id)!).filter(Boolean);
 }

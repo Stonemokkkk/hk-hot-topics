@@ -1,12 +1,8 @@
-// app/api/scrape/route.ts
-
+// app/api/scrape/route.ts — Synchronous scraping (returns results directly)
 import { NextResponse } from 'next/server';
-import { randomUUID } from 'crypto';
 import { exec } from 'child_process';
 import { promisify } from 'util';
-import path from 'path';
-import { setJob } from '@/lib/kv';
-import type { ScrapeJob, ScrapeSource } from '@/lib/types';
+import type { ScrapeSource } from '@/lib/types';
 
 const execAsync = promisify(exec);
 
@@ -20,55 +16,32 @@ export async function POST(request: Request) {
     );
   }
 
-  const jobId = randomUUID();
-  const job: ScrapeJob = {
-    jobId,
-    status: 'running',
-    progress: 0,
-    sources,
-    startedAt: new Date().toISOString(),
-    completedAt: null,
-    error: null,
-  };
-
-  // Save initial job state
-  await setJob(job);
-
-  // Run scraper in background (Vercel Background Function pattern)
   const sourceArgs = sources.join(' ');
 
-  exec(`python3 -m scraper.scraper --json ${sourceArgs}`, {
-    timeout: 4 * 60 * 1000, // 4 minutes (leave buffer for 5 min limit)
-    maxBuffer: 10 * 1024 * 1024, // 10MB buffer
-  }, async (error, stdout, stderr) => {
-    if (error) {
-      job.status = 'error';
-      job.error = error.message;
-      job.completedAt = new Date().toISOString();
-      await setJob(job);
-      return;
-    }
+  try {
+    const { stdout } = await execAsync(
+      `python3 -m scraper.scraper --json ${sourceArgs}`,
+      {
+        timeout: 4 * 60 * 1000, // 4 minutes
+        maxBuffer: 10 * 1024 * 1024, // 10MB
+      }
+    );
 
-    try {
-      const result = JSON.parse(stdout);
-      job.status = 'complete';
-      job.progress = 100;
-      job.completedAt = new Date().toISOString();
-      await setJob(job);
+    const result = JSON.parse(stdout);
 
-      // Store results separately
-      const { setResults } = await import('@/lib/kv');
-      await setResults(jobId, {
+    return NextResponse.json({
+      success: true,
+      data: {
         date: result.date,
         topics: result.trends,
-      });
-    } catch (e) {
-      job.status = 'error';
-      job.error = 'Failed to parse scraper output';
-      job.completedAt = new Date().toISOString();
-      await setJob(job);
-    }
-  });
-
-  return NextResponse.json({ success: true, data: { jobId } });
+        errors: result.errors,
+      },
+    });
+  } catch (error: unknown) {
+    const msg = error instanceof Error ? error.message : 'Scraping failed';
+    return NextResponse.json(
+      { success: false, error: msg },
+      { status: 500 }
+    );
+  }
 }

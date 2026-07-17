@@ -2,56 +2,47 @@
 
 'use client';
 
-import { useState, useCallback } from 'react';
+import { useState } from 'react';
 import SettingsPanel from '@/components/SettingsPanel';
 import ResultsPanel from '@/components/ResultsPanel';
-import type { ScrapeJob, Topic, ScrapeSource } from '@/lib/types';
+import type { Topic, ScrapeSource } from '@/lib/types';
 
 export default function Home() {
-  const [job, setJob] = useState<ScrapeJob | null>(null);
   const [topics, setTopics] = useState<Topic[]>([]);
   const [toolHtml, setToolHtml] = useState<string | null>(null);
   const [isScraping, setIsScraping] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
+  const [scrapeStatus, setScrapeStatus] = useState<'idle' | 'running' | 'complete' | 'error'>('idle');
+  const [scrapeError, setScrapeError] = useState<string | null>(null);
 
-  // Poll job status
-  const pollJobStatus = useCallback(async (jobId: string) => {
-    const res = await fetch(`/api/status?jobId=${jobId}`);
-    const data = await res.json();
-
-    if (data.success && data.data) {
-      setJob(data.data.job);
-      if (data.data.topics) {
-        setTopics(data.data.topics);
-      }
-
-      // Continue polling if still running
-      if (data.data.job.status === 'running') {
-        setTimeout(() => pollJobStatus(jobId), 2000);
-      } else {
-        setIsScraping(false);
-      }
-    }
-  }, []);
-
-  // Handle scrape
+  // Handle scrape (synchronous — waits for full response)
   const handleScrape = async (sources: ScrapeSource[]) => {
     setIsScraping(true);
     setToolHtml(null);
+    setScrapeStatus('running');
+    setScrapeError(null);
 
-    const res = await fetch('/api/scrape', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ sources }),
-    });
+    try {
+      const res = await fetch('/api/scrape', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ sources }),
+      });
 
-    const data = await res.json();
+      const data = await res.json();
 
-    if (data.success && data.data) {
-      pollJobStatus(data.data.jobId);
-    } else {
+      if (data.success && data.data) {
+        setTopics(data.data.topics);
+        setScrapeStatus('complete');
+      } else {
+        setScrapeError(data.error || 'Scraping failed');
+        setScrapeStatus('error');
+      }
+    } catch {
+      setScrapeError('Network error — please try again');
+      setScrapeStatus('error');
+    } finally {
       setIsScraping(false);
-      alert(data.error || 'Failed to start scraping');
     }
   };
 
@@ -64,19 +55,23 @@ export default function Home() {
 
     setIsGenerating(true);
 
-    const res = await fetch('/api/generate', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ apiKey, model, topics }),
-    });
+    try {
+      const res = await fetch('/api/generate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ apiKey, model, topics }),
+      });
 
-    const data = await res.json();
-    setIsGenerating(false);
-
-    if (data.success && data.data) {
-      setToolHtml(data.data.html);
-    } else {
-      alert(data.error || 'Failed to generate tool');
+      const data = await res.json();
+      if (data.success && data.data) {
+        setToolHtml(data.data.html);
+      } else {
+        alert(data.error || 'Failed to generate tool');
+      }
+    } catch {
+      alert('Network error — please try again');
+    } finally {
+      setIsGenerating(false);
     }
   };
 
@@ -122,7 +117,8 @@ export default function Home() {
         {/* Right Panel - Results */}
         <div className="lg:col-span-2">
           <ResultsPanel
-            job={job}
+            scrapeStatus={scrapeStatus}
+            scrapeError={scrapeError}
             topics={topics}
             toolHtml={toolHtml}
           />
