@@ -1,0 +1,17 @@
+{
+  "openrouter": {
+    "base_url": "https://openrouter.ai/api",
+    "model": "xiaomi/mimo-v2.5"
+  },
+  "deploy": {
+    "output_dir": "/var/www/hk-tools",
+    "max_tools": 30
+  },
+  "schedule": {
+    "cron": "0 3 * * *"
+  },
+  "scraper": {
+    "timeout": 10,
+    "retries": 1
+  }
+}

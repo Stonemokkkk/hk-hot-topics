@@ -1,0 +1,10 @@
+{
+  "name": "hk-hot-topics-generator",
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "generate": "node generator.js",
+    "deploy": "node deploy.js"
+  },
+  "dependencies": {}
+}
