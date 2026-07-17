@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="zh-HK">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>香港每日熱話小工具</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      min-height: 100vh;
+      padding: 20px;
+    }
+    .container {
+      max-width: 800px;
+      margin: 0 auto;
+      background: white;
+      border-radius: 16px;
+      box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+      overflow: hidden;
+    }
+    header {
+      background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+      color: white;
+      padding: 30px;
+      text-align: center;
+    }
+    h1 { font-size: 28px; margin-bottom: 10px; }
+    .subtitle { opacity: 0.9; }
+    .tools-list {
+      list-style: none;
+      padding: 20px;
+    }
+    .tools-list li {
+      padding: 15px;
+      margin: 10px 0;
+      background: #f8f9fa;
+      border-radius: 8px;
+      transition: transform 0.2s, box-shadow 0.2s;
+    }
+    .tools-list li:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+    }
+    .tools-list a {
+      color: #333;
+      text-decoration: none;
+      font-size: 18px;
+      font-weight: 500;
+    }
+    .tools-list .date {
+      color: #666;
+      font-size: 14px;
+      margin-top: 5px;
+    }
+    footer {
+      text-align: center;
+      padding: 20px;
+      color: #666;
+      font-size: 14px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>🇭🇰 香港每日熱話小工具</h1>
+      <p class="subtitle">每日自動生成嘅互動小工具</p>
+    </header>
+    <ul class="tools-list">
+      <!-- TOOLS_LIST -->
+    </ul>
+    <footer>
+      <p>自動生成 by HK Hot Topics Bot</p>
+    </footer>
+  </div>
+</body>
+</html>
