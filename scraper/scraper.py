@@ -65,5 +65,35 @@ def main():
     print(f"[INFO] Saved {len(results)} topics to {output_file}")
     return output_file
 
+def scrape_to_json(sources: list[str]) -> dict:
+    """Scrape and return JSON to stdout (for serverless)."""
+    today = datetime.now(HKT).strftime("%Y-%m-%d")
+
+    source_map = {
+        "baby_kingdom": scrape_baby_kingdom,
+        "google_news": scrape_google_news,
+        "google_trends": scrape_google_trends,
+    }
+
+    results = []
+    errors = []
+
+    for name in sources:
+        if name not in source_map:
+            continue
+        try:
+            topics = source_map[name]()
+            results.extend(topics)
+        except Exception as e:
+            errors.append(f"{name}: {e}")
+
+    return {"date": today, "trends": results, "errors": errors}
+
 if __name__ == "__main__":
-    main()
+    if len(sys.argv) > 1 and sys.argv[1] == "--json":
+        # JSON mode: scrape specified sources
+        sources = sys.argv[2:] if len(sys.argv) > 2 else ["baby_kingdom", "google_news", "google_trends"]
+        result = scrape_to_json(sources)
+        print(json.dumps(result, ensure_ascii=False))
+    else:
+        main()
