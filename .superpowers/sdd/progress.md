@@ -15,5 +15,5 @@
 - [x] Task 11: ToolPreview Component (commit 0dca09d)
 - [x] Task 12: Main Page Layout (commit c689117)
 - [x] Task 13: Environment Configuration (commit 41880f0)
-- [ ] Task 14: Testing
-- [ ] Task 15: Deployment Setup
+- [x] Task 14: Testing (commit 5fb14fc)
+- [x] Task 15: Deployment Setup (commit 248693a)
