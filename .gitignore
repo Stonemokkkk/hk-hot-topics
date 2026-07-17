@@ -1,0 +1,22 @@
+# Environment variables (contains API keys)
+.env
+
+# Logs
+logs/
+
+# Data (generated daily)
+data/*.json
+
+# Output (generated HTML)
+output/
+
+# Python
+__pycache__/
+*.pyc
+
+# Node
+node_modules/
+
+# OS
+.DS_Store
+Thumbs.db
