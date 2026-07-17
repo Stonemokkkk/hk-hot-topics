@@ -1,11 +1,12 @@
 #!/usr/bin/env node
 /**
- * Deploy script - copies generated HTML to web server directory
+ * Deploy script - copies generated HTML to web server directory and GitHub Pages
  */
 
 import fs from 'fs/promises';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import { execSync } from 'child_process';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT_DIR = path.join(__dirname, '..');
@@ -72,6 +73,89 @@ async function cleanupOldTools(config) {
   }
 }
 
+async function deployToGitHubPages(date, config) {
+  const tempDir = path.join(ROOT_DIR, '.gh-pages-temp');
+
+  try {
+    // Create temp directory
+    await fs.rm(tempDir, { recursive: true, force: true });
+    await fs.mkdir(tempDir, { recursive: true });
+
+    // Copy today's HTML
+    const srcPath = path.join(ROOT_DIR, 'output', `${date}.html`);
+    await fs.copyFile(srcPath, path.join(tempDir, `${date}.html`));
+
+    // Copy or create index.html
+    const indexSrc = path.join(config.deploy.output_dir, 'index.html');
+    try {
+      await fs.copyFile(indexSrc, path.join(tempDir, 'index.html'));
+    } catch {
+      // Create simple index if not exists
+      const simpleIndex = `<!DOCTYPE html>
+<html lang="zh-HK">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>香港每日熱話小工具</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: -apple-system, sans-serif; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); min-height: 100vh; padding: 20px; }
+    .container { max-width: 800px; margin: 0 auto; background: white; border-radius: 16px; box-shadow: 0 10px 40px rgba(0,0,0,0.2); overflow: hidden; }
+    header { background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); color: white; padding: 30px; text-align: center; }
+    h1 { font-size: 28px; margin-bottom: 10px; }
+    .tools-list { list-style: none; padding: 20px; }
+    .tools-list li { padding: 15px; margin: 10px 0; background: #f8f9fa; border-radius: 8px; }
+    .tools-list a { color: #333; text-decoration: none; font-size: 18px; font-weight: 500; }
+    .tools-list .date { color: #666; font-size: 14px; margin-top: 5px; }
+    footer { text-align: center; padding: 20px; color: #666; font-size: 14px; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>🇭🇰 香港每日熱話小工具</h1>
+      <p class="subtitle">每日自動生成嘅互動小工具</p>
+    </header>
+    <ul class="tools-list">
+      <li>
+        <a href="${date}.html">${date} 熱話小工具</a>
+        <div class="date">${date}</div>
+      </li>
+    </ul>
+    <footer>
+      <p>自動生成 by HK Hot Topics Bot</p>
+    </footer>
+  </div>
+</body>
+</html>`;
+      await fs.writeFile(path.join(tempDir, 'index.html'), simpleIndex, 'utf-8');
+    }
+
+    // Git operations
+    execSync('git checkout --orphan gh-pages', { cwd: ROOT_DIR, stdio: 'pipe' });
+    execSync('git rm -rf . 2>/dev/null || true', { cwd: ROOT_DIR, stdio: 'pipe' });
+
+    // Move temp files to root
+    const files = await fs.readdir(tempDir);
+    for (const file of files) {
+      await fs.rename(path.join(tempDir, file), path.join(ROOT_DIR, file));
+    }
+
+    execSync('git add .', { cwd: ROOT_DIR, stdio: 'pipe' });
+    execSync(`git commit -m "Deploy ${date} hot topics tool"`, { cwd: ROOT_DIR, stdio: 'pipe' });
+    execSync('git push origin gh-pages --force', { cwd: ROOT_DIR, stdio: 'pipe' });
+
+    // Switch back to master
+    execSync('git checkout master', { cwd: ROOT_DIR, stdio: 'pipe' });
+    execSync('git branch -D gh-pages 2>/dev/null || true', { cwd: ROOT_DIR, stdio: 'pipe' });
+
+    console.log('[INFO] Deployed to GitHub Pages');
+  } finally {
+    // Cleanup temp directory
+    await fs.rm(tempDir, { recursive: true, force: true });
+  }
+}
+
 async function main() {
   const today = new Date().toISOString().split('T')[0];
 
@@ -91,6 +175,9 @@ async function main() {
 
     // Cleanup old tools
     await cleanupOldTools(config);
+
+    // Deploy to GitHub Pages
+    await deployToGitHubPages(today, config);
 
     console.log('[INFO] Deploy complete!');
   } catch (error) {
